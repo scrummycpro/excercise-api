@@ -4,6 +4,7 @@ import numpy as np
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 import json
+import random
 
 # Custom JSON Response to handle NaN and Infinity values (optional if you want to allow NaN in JSON)
 class CustomJSONResponse(JSONResponse):
@@ -27,13 +28,54 @@ df = pd.read_csv(csv_file_path)
 df.replace([np.inf, -np.inf], np.nan, inplace=True)
 df.fillna("", inplace=True)  # Replace NaN with an empty string
 
-# Utility function to search in the CSV data
-def search_csv(column: str, value: str):
-    # Perform case-insensitive search
-    result = df[df[column].str.contains(value, case=False, na=False)]
+# Function to get 6 random exercises for a specific muscle or all muscles
+def get_six_random_exercises(muscle: str = None):
+    if muscle:
+        exercises_for_muscle = df[df['Target_Muscles'].str.contains(muscle, case=False, na=False)]
+        if len(exercises_for_muscle) == 0:
+            raise ValueError(f"No exercises found for the muscle: {muscle}")
+        if len(exercises_for_muscle) <= 6:
+            # If there are fewer than or equal to 6 exercises for that muscle, return all
+            selected_exercises = exercises_for_muscle.to_dict(orient="records")
+        else:
+            # Otherwise, randomly sample 6 exercises
+            selected_exercises = exercises_for_muscle.sample(6).to_dict(orient="records")
+        return {muscle: selected_exercises}
     
-    # Return result as a dictionary that can be converted to JSON
-    return result.to_dict(orient="records")
+    # If no specific muscle is given, return 6 random exercises per muscle
+    muscles = df['Target_Muscles'].unique()  # Get all unique muscle groups
+    random_exercises = {}
+
+    for muscle in muscles:
+        exercises_for_muscle = df[df['Target_Muscles'].str.contains(muscle, case=False, na=False)]
+        if len(exercises_for_muscle) <= 6:
+            selected_exercises = exercises_for_muscle.to_dict(orient="records")
+        else:
+            selected_exercises = exercises_for_muscle.sample(6).to_dict(orient="records")
+        
+        random_exercises[muscle] = selected_exercises
+
+    return random_exercises
+
+# Function to get one random exercise for a specific muscle or all muscles
+def get_one_random_exercise(muscle: str = None):
+    if muscle:
+        exercises_for_muscle = df[df['Target_Muscles'].str.contains(muscle, case=False, na=False)]
+        if len(exercises_for_muscle) == 0:
+            raise ValueError(f"No exercises found for the muscle: {muscle}")
+        selected_exercise = exercises_for_muscle.sample(1).to_dict(orient="records")
+        return {muscle: selected_exercise}
+    
+    # If no specific muscle is given, return one random exercise per muscle
+    muscles = df['Target_Muscles'].unique()  # Get all unique muscle groups
+    random_exercises = {}
+
+    for muscle in muscles:
+        exercises_for_muscle = df[df['Target_Muscles'].str.contains(muscle, case=False, na=False)]
+        selected_exercise = exercises_for_muscle.sample(1).to_dict(orient="records")
+        random_exercises[muscle] = selected_exercise
+
+    return random_exercises
 
 @app.get("/")
 def read_root():
@@ -58,3 +100,23 @@ def search(
     
     # Return results
     return results
+
+# Random 6 exercises per muscle group endpoint with optional muscle input
+@app.get("/six_exercises_per_muscle", response_class=CustomJSONResponse)
+def six_exercises_per_muscle(muscle: str = None):
+    try:
+        exercises = get_six_random_exercises(muscle)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    return exercises
+
+# One random exercise per muscle group endpoint with optional muscle input
+@app.get("/one_exercise_per_muscle", response_class=CustomJSONResponse)
+def one_exercise_per_muscle(muscle: str = None):
+    try:
+        exercises = get_one_random_exercise(muscle)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    return exercises
