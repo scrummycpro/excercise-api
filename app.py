@@ -77,11 +77,17 @@ def get_one_random_exercise(muscle: str = None):
 
     return random_exercises
 
+# Endpoint to list all unique muscles
+@app.get("/list_muscles", response_class=CustomJSONResponse)
+def list_muscles():
+    muscles = df['Target_Muscles'].unique().tolist()  # Get unique muscle groups
+    return {"muscles": muscles}
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Exercise Search API"}
 
-# Search endpoint
+# Search endpoint by column and value
 @app.get("/search", response_class=CustomJSONResponse)  # Optional: if you want to allow NaN in JSON
 def search(
     column: str = Query(..., description="Column to search in (e.g., 'Exercise Name', 'Target_Muscles')"),
@@ -91,15 +97,15 @@ def search(
     if column not in df.columns:
         return {"error": f"Invalid column name: {column}. Available columns: {list(df.columns)}"}
     
-    # Get search results
-    results = search_csv(column, value)
+    # Perform case-insensitive search
+    results = df[df[column].str.contains(value, case=False, na=False)].to_dict(orient="records")
     
     # If no results found
     if not results:
         return {"message": "No matching records found."}
     
     # Return results
-    return results
+    return {"results": results}
 
 # Random 6 exercises per muscle group endpoint with optional muscle input
 @app.get("/six_exercises_per_muscle", response_class=CustomJSONResponse)
@@ -120,3 +126,39 @@ def one_exercise_per_muscle(muscle: str = None):
         return {"error": str(e)}
 
     return exercises
+
+# Additional search endpoints for each CSV header
+@app.get("/search_by_equipment", response_class=CustomJSONResponse)
+def search_by_equipment(equipment: str):
+    results = df[df['Equipment'].str.contains(equipment, case=False, na=False)].to_dict(orient="records")
+    if not results:
+        return {"message": "No matching exercises found with the specified equipment."}
+    return {"results": results}
+
+@app.get("/search_by_variation", response_class=CustomJSONResponse)
+def search_by_variation(variation: str):
+    results = df[df['Variation'].str.contains(variation, case=False, na=False)].to_dict(orient="records")
+    if not results:
+        return {"message": "No matching exercises found with the specified variation."}
+    return {"results": results}
+
+@app.get("/search_by_utility", response_class=CustomJSONResponse)
+def search_by_utility(utility: str):
+    results = df[df['Utility'].str.contains(utility, case=False, na=False)].to_dict(orient="records")
+    if not results:
+        return {"message": "No matching exercises found with the specified utility."}
+    return {"results": results}
+
+@app.get("/search_by_mechanics", response_class=CustomJSONResponse)
+def search_by_mechanics(mechanics: str):
+    results = df[df['Mechanics'].str.contains(mechanics, case=False, na=False)].to_dict(orient="records")
+    if not results:
+        return {"message": "No matching exercises found with the specified mechanics."}
+    return {"results": results}
+
+@app.get("/search_by_force", response_class=CustomJSONResponse)
+def search_by_force(force: str):
+    results = df[df['Force'].str.contains(force, case=False, na=False)].to_dict(orient="records")
+    if not results:
+        return {"message": "No matching exercises found with the specified force."}
+    return {"results": results}
